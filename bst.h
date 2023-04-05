@@ -5,7 +5,7 @@
 #include <exception>
 #include <cstdlib>
 #include <utility>
-
+//credit given to geeksforgeeks for their tutorials and ofc the slides!
 /**
  * A templated class for a Node in a search tree.
  * The getters for parent/left/right are virtual so
@@ -243,11 +243,16 @@ protected:
     //        and instead just use the input argument.
 
     // Provided helper functions
-    virtual void printRoot (Node<Key, Value> *r) const;
-    virtual void nodeSwap( Node<Key,Value>* n1, Node<Key,Value>* n2) ;
+    virtual void printRoot(Node<Key, Value> *r) const;
+    virtual void nodeSwap(Node<Key,Value>* n1, Node<Key,Value>* n2) ;
 
     // Add helper functions here
-
+    static Node<Key, Value>* successor(Node<Key, Value>* current); // TODO
+    void clear(Node<Key, Value>* node);
+    int getHeight() const;
+    int getHeightHelper(Node<Key, Value>* node) const;
+    bool isBalancedHelper(Node<Key, Value>* node) const;
+    
 
 protected:
     Node<Key, Value>* root_;
@@ -267,6 +272,7 @@ template<class Key, class Value>
 BinarySearchTree<Key, Value>::iterator::iterator(Node<Key,Value> *ptr)
 {
     // TODO
+    current_ = ptr;
 }
 
 /**
@@ -276,6 +282,7 @@ template<class Key, class Value>
 BinarySearchTree<Key, Value>::iterator::iterator() 
 {
     // TODO
+    current_ = NULL;
 
 }
 
@@ -309,6 +316,7 @@ BinarySearchTree<Key, Value>::iterator::operator==(
     const BinarySearchTree<Key, Value>::iterator& rhs) const
 {
     // TODO
+    return current_ == rhs.current_;
 }
 
 /**
@@ -321,6 +329,7 @@ BinarySearchTree<Key, Value>::iterator::operator!=(
     const BinarySearchTree<Key, Value>::iterator& rhs) const
 {
     // TODO
+    return current_ != rhs.current_;
 
 }
 
@@ -333,6 +342,8 @@ typename BinarySearchTree<Key, Value>::iterator&
 BinarySearchTree<Key, Value>::iterator::operator++()
 {
     // TODO
+    current_ = successor(current_);
+    return *this;
 
 }
 
@@ -356,13 +367,14 @@ template<class Key, class Value>
 BinarySearchTree<Key, Value>::BinarySearchTree() 
 {
     // TODO
+    root_ = NULL;
 }
 
 template<typename Key, typename Value>
 BinarySearchTree<Key, Value>::~BinarySearchTree()
 {
     // TODO
-
+    clear();
 }
 
 /**
@@ -435,6 +447,100 @@ Value const & BinarySearchTree<Key, Value>::operator[](const Key& key) const
     return curr->getValue();
 }
 
+template<class Key, class Value>
+Node<Key, Value>*
+BinarySearchTree<Key, Value>::successor(Node<Key, Value>* current)
+{
+  /*
+  If right child exists, successor is the
+  left most node of the right subtree
+    • Else walk up the ancestor chain until
+      you traverse the first left child pointer
+      (find the first node who is a left child
+      of his parent…that parent is the
+      successor)
+
+  – If you get to the root w/o finding a node
+  who is a left child, there is no successor
+
+  
+  */
+
+   if (current == nullptr) {
+        return nullptr;
+    }
+
+    while(current != nullptr){
+        if(current->getRight() != nullptr){
+            current = current->getRight();
+            while(current->getLeft() != nullptr){
+                current = current->getLeft();
+            }
+            return current;
+        }
+        else{
+            while(current != nullptr){
+                current = current->getParent();
+                if(current != nullptr && current->getParent() != nullptr && current->getParent()->getLeft() == current){
+                    current = current->getParent();
+                    return current;
+                }
+            }
+        }
+        
+    }
+
+    return current;
+
+
+}
+
+template<class Key, class Value>
+Node<Key, Value>*
+BinarySearchTree<Key, Value>::predecessor(Node<Key, Value>* current)
+{
+    // TODO
+
+    /*
+    • If left child exists, predecessor is the
+    right most node of the left subtree
+    • Else walk up the ancestor chain until you
+    traverse the first right child pointer (find
+    the first node who is a right child of his
+    parent…that parent is the predecessor)
+    – If you get to the root w/o finding a node
+    who is a right child, there is no predecessor
+    */
+
+   if (current == nullptr) {
+        return nullptr;
+    }
+
+    while(current != nullptr){
+        if(current->getLeft() != nullptr){
+            current = current->getLeft();
+            while(current->getRight() != nullptr){
+                current = current->getRight();  
+            }
+            return current;
+        }
+        else{
+            while(current->getParent() != nullptr){
+                current = current->getParent();
+                if(current->getParent() != nullptr && current->getParent()->getRight() == current){
+                    current = current->getParent();
+                    return current;
+                }
+            }
+            return nullptr;
+        }
+        
+    }
+
+    return nullptr;
+    
+}
+
 /**
 * An insert method to insert into a Binary Search Tree.
 * The tree will not remain balanced when inserting.
@@ -445,7 +551,54 @@ template<class Key, class Value>
 void BinarySearchTree<Key, Value>::insert(const std::pair<const Key, Value> &keyValuePair)
 {
     // TODO
+    /** If empty tree => set n as root, b(n) = 0, done!
+      Else insert n (by walking the tree to a leaf, p, and
+      inserting the new node as its child), set balance
+      to 0, and look at its parent, p
+        – If b(p) was -1, then b(p) = 0. Done!
+        – If b(p) was +1, then b(p) = 0. Done!
+        – If b(p) was 0, then update b(p) and call insert-fix(p, n)
+    */
+    if(this->empty()){
+        Node<Key, Value>* node = new Node<Key, Value>(keyValuePair.first, keyValuePair.second, NULL);
+        root_ = node;
+        
+    }
+    else{
+      Node<Key, Value>* current = root_;
+      
+      // Traverse the tree to find the correct position to insert the node
+      while(true){
+        if(keyValuePair.first < current->getKey()){ // Go left
+          if(current->getLeft() == nullptr){
+            Node<Key, Value>* node = new Node<Key, Value>(keyValuePair.first, keyValuePair.second, current);
+            current->setLeft(node);
+            break;
+          }
+          else{
+            current = current->getLeft();
+          }
+        }
+        else if(keyValuePair.first > current->getKey()){ // Go right
+          if(current->getRight() == nullptr){
+            Node<Key, Value>* node = new Node<Key, Value>(keyValuePair.first, keyValuePair.second, current);
+            current->setRight(node);
+            break;
+          }
+          else{
+            current = current->getRight();
+          }
+        }
+        else{ // Key already exists, update the value
+          current->setValue(keyValuePair.second);
+          break;
+        }
+      }
+    }
+    
 }
+
+
 
 
 /**
@@ -454,18 +607,115 @@ void BinarySearchTree<Key, Value>::insert(const std::pair<const Key, Value> &key
 * should swap with the predecessor and then remove.
 */
 template<typename Key, typename Value>
-void BinarySearchTree<Key, Value>::remove(const Key& key)
-{
-    // TODO
-}
+void BinarySearchTree<Key, Value>::remove(const Key& key) {
+
+  /*
+  This function will remove the node with the specified key
+  from the tree. 
+  
+  There is no guarantee the tree is balanced
+  before or after the removal. 
+  
+  If the key is not already in
+  the tree, this function will do nothing.
+  
+   If the node to be
+  removed has two children, swap with its predecessor 
+  (not its successor) in the BST removal algorithm.
+  
+  If the node to be removed has exactly one child, you can promote
+  the child. You may NOT just swap key,value pairs. You must
+  swap the actual nodes by changing pointers, but we have given
+  you a helper function to do this in the BST class: swapNode().
 
 
+  Runtime of removal should be O(h).
+*/
 
-template<class Key, class Value>
-Node<Key, Value>*
-BinarySearchTree<Key, Value>::predecessor(Node<Key, Value>* current)
-{
-    // TODO
+ if (this->empty()) {
+    return; // Tree is empty, nothing to remove
+    }
+
+    // Find the node to remove
+    Node<Key, Value>* nodeToRemove = this->internalFind(key);
+    if (nodeToRemove == nullptr) {
+        return; // Key not found, nothing to remove
+    }
+
+    // If nodeToRemove is the root of the tree, handle it differently
+    if (nodeToRemove == this->root_) {
+        if (nodeToRemove->getRight() != nullptr && nodeToRemove->getLeft() != nullptr) {
+            // Find the predecessor and swap the values of the two nodes
+            Node<Key, Value>* predecessor = BinarySearchTree<Key, Value>::predecessor(nodeToRemove);
+    
+            nodeSwap(predecessor, nodeToRemove);
+        }
+        else {
+            // Update the root to be the non-null child or nullptr if both children are null
+            if (nodeToRemove->getRight() != nullptr) {
+                this->root_ = nodeToRemove->getRight();
+                nodeToRemove->getRight()->setParent(nullptr);
+            }
+            else if(nodeToRemove->getLeft() != nullptr){
+                this->root_ = nodeToRemove->getLeft();
+                nodeToRemove->getLeft()->setParent(nullptr);
+            }
+            else{ //no children
+                this->root_ = nullptr;
+            }
+            delete nodeToRemove;
+            return;
+        }
+    }
+
+    // If nodeToRemove has 2 children, swap with its predecessor
+    if (nodeToRemove->getRight() != nullptr && nodeToRemove->getLeft() != nullptr) {
+        Node<Key, Value>* predecessor = BinarySearchTree<Key, Value>::predecessor(nodeToRemove);
+        nodeSwap(nodeToRemove, predecessor);
+        // nodeToRemove = predecessor;
+    }
+
+    // If nodeToRemove is a leaf node without children
+    if (nodeToRemove->getRight() == nullptr && nodeToRemove->getLeft() == nullptr) {
+        if (nodeToRemove->getParent() != nullptr) {
+            // if the node to be removed is the left child of its parent, make the left child of the parent nullptr
+            if (nodeToRemove->getParent()->getLeft() == nodeToRemove) {
+                nodeToRemove->getParent()->setLeft(nullptr);
+                
+            }
+            else {
+                nodeToRemove->getParent()->setRight(nullptr);
+            }
+            delete nodeToRemove;
+        }
+    }
+    // If nodeToRemove has 1 child
+    else{ 
+        if(nodeToRemove->getLeft()!= nullptr && nodeToRemove->getParent()!= nullptr){
+            // promote the left child
+            //nodeSwap(nodeToRemove, nodeToRemove->getLeft());
+            if (nodeToRemove->getParent()->getLeft() == nodeToRemove) {
+                nodeToRemove->getParent()->setLeft(nodeToRemove->getLeft());
+            }
+            else {
+                nodeToRemove->getParent()->setRight(nodeToRemove->getLeft());
+            }
+            nodeToRemove->getLeft()->setParent(nodeToRemove->getParent());
+            delete nodeToRemove;
+        }
+        else if(nodeToRemove->getRight()!= nullptr && nodeToRemove->getParent()!= nullptr){
+            // promote the right child
+            if (nodeToRemove->getParent()->getRight() == nodeToRemove) {
+                nodeToRemove->getParent()->setRight(nodeToRemove->getRight());
+            }
+            else {
+                nodeToRemove->getParent()->setLeft(nodeToRemove->getRight());
+            }
+            nodeToRemove->getRight()->setParent(nodeToRemove->getParent());
+            delete nodeToRemove;
+        }
+    }
+    
 }
 
 
@@ -477,8 +727,19 @@ template<typename Key, typename Value>
 void BinarySearchTree<Key, Value>::clear()
 {
     // TODO
+    clear(root_);
+    root_ = nullptr;
 }
 
+template<typename Key, typename Value>
+void BinarySearchTree<Key, Value>::clear(Node<Key, Value>* node)
+{
+    if (node != nullptr) {
+        clear(node->getLeft());
+        clear(node->getRight());
+        delete node;
+    }
+}
 
 /**
 * A helper function to find the smallest node in the tree.
@@ -488,6 +749,21 @@ Node<Key, Value>*
 BinarySearchTree<Key, Value>::getSmallestNode() const
 {
     // TODO
+    if(empty()){
+        return nullptr;
+    }
+    
+    Node<Key, Value>* current = root_;
+
+    if(current == nullptr){
+        return nullptr;
+    }
+    
+    while(current->getLeft() != nullptr){
+        current = current->getLeft();
+    }
+    return current;
+
 }
 
 /**
@@ -499,15 +775,97 @@ template<typename Key, typename Value>
 Node<Key, Value>* BinarySearchTree<Key, Value>::internalFind(const Key& key) const
 {
     // TODO
+  
+    /*
+    To find a node with a given key
+    – If node pointer is NULL, the key does NOT exist in the tree, STOP!
+    – Otherwise, check if current node's key equals the desired key
+        • If so, STOP! and return a pointer to that node
+    – If desired key is LESS-THAN current node's key, go LEFT
+–    If desired key is GREATER-THAN current node's key, go RIGHT
+    */
+    Node<Key, Value>* curr = root_; // Start at the root of the tree
+    while (curr != nullptr) { // Traverse the tree until the end is reached
+        if (curr->getKey() == key) { // If the current node has the key we're looking for
+            return curr; // Return a pointer to it
+        } else if (key < curr->getKey()) { // If the key we're looking for is less than the key of the current node
+            curr = curr->getLeft(); // Traverse left subtree
+        } else { // Otherwise, the key we're looking for is greater than the key of the current node
+            curr = curr->getRight(); // Traverse right subtree
+        }
+    }
+    return nullptr; // If we've reached the end of the tree without finding the key, return a nullptr
+
+}
+
+template<typename Key, typename Value>
+int BinarySearchTree<Key, Value>::getHeightHelper(Node<Key, Value>* node) const
+{
+    if (node == nullptr) {
+        return -1; // empty tree has height -1
+    } else {
+        int leftHeight = getHeightHelper(node->getLeft());
+        int rightHeight = getHeightHelper(node->getRight());
+        return 1 + std::max(leftHeight, rightHeight);
+    }
+}
+
+template<typename Key, typename Value>
+int BinarySearchTree<Key, Value>::getHeight() const
+{
+    return getHeightHelper(root_);
 }
 
 /**
  * Return true iff the BST is balanced.
  */
+
+template<typename Key, typename Value>
+bool BinarySearchTree<Key, Value>::isBalancedHelper(Node<Key, Value>* node) const
+{
+    // TODO
+
+    if (node == nullptr) {
+        return true;
+    }
+    
+    // get the height of the left and right subtrees
+    int left_height = getHeightHelper(node->getLeft());
+    int right_height = getHeightHelper(node->getRight());
+
+    // check if the difference in heights is no more than 1
+    if (abs(left_height - right_height) > 1) {
+        return false;
+    }
+
+    // recursively check if the left and right subtrees are balanced
+    return isBalancedHelper(node->getLeft()) && isBalancedHelper(node->getRight());
+
+
+}
 template<typename Key, typename Value>
 bool BinarySearchTree<Key, Value>::isBalanced() const
 {
     // TODO
+    Node<Key, Value>* node = root_;
+
+    if (node == nullptr) {
+        return true;
+    }
+    
+    // get the height of the left and right subtrees
+    int left_height = getHeightHelper(node->getLeft());
+    int right_height = getHeightHelper(node->getRight());
+
+    // check if the difference in heights is no more than 1
+    if (abs(left_height - right_height) > 1) {
+        return false;
+    }
+
+    // recursively check if the left and right subtrees are balanced
+    return isBalancedHelper(node->getLeft()) && isBalancedHelper(node->getRight());
+
+
 }
 
 
